@@ -1,59 +1,53 @@
 #!/usr/bin/python3
-"""This script retrieves employee TODO list progress and exports it in CSV format"""
+"""Script to export todo list progress to CSV"""
 import requests
-import sys
 import csv
+from sys import argv
 
-def export_to_csv(employee_id, employee_name, tasks):
-    csv_filename = f"{employee_id}.csv"
-    with open(csv_filename, 'w', newline='', encoding='utf-8') as csv_file:
+def information_employee():
+    """Returns information about employees"""
+    if len(argv) != 2:
+        print("Usage: python3 script_name.py employee_id")
+        return
+
+    id_employee = int(argv[1])
+
+    url_users = 'https://jsonplaceholder.typicode.com/users'
+    url_todos = 'https://jsonplaceholder.typicode.com/todos'
+
+    try:
+        response_users = requests.get(url_users)
+        response_todos = requests.get(url_todos)
+        response_users.raise_for_status()
+        response_todos.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print("Error fetching data from the API:", e)
+        return
+
+    users = response_users.json()
+    todos = response_todos.json()
+
+    user_info = next((user for user in users if user['id'] == id_employee), None)
+    if not user_info:
+        print("Employee with ID {} not found.".format(id_employee))
+        return
+
+    completed_tasks = [
+        (user_info['id'], user_info['username'], str(todo['completed']), todo['title'])
+        for todo in todos if todo['userId'] == id_employee
+    ]
+
+    if not completed_tasks:
+        print("No completed tasks for Employee {}.".format(user_info['name']))
+        return
+
+    csv_filename = "{}.csv".format(user_info['id'])
+    with open(csv_filename, 'w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(["USER_ID", "USERNAME", "TASK_COMPLETED_STATUS", "TASK_TITLE"])
+        csv_writer.writerows(completed_tasks)
 
-        for task in tasks:
-            task_completed_status = "True" if task["completed"] else "False"
-            task_title = task["title"]
-            csv_writer.writerow([employee_id, employee_name, task_completed_status, task_title])
-
-    print(f"Data exported to {csv_filename}")
+    print("Data exported to {}".format(csv_filename))
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 script_name.py employee_id")
-        sys.exit(1)
-
-    employee_id = int(sys.argv[1])
-
-    api_url = f'https://jsonplaceholder.typicode.com/users/{employee_id}'
-    response = requests.get(api_url)
-
-    if response.status_code != 200:
-        print("Error fetching user data from the API.")
-        sys.exit(1)
-
-    employee_name = response.json()["username"]
-
-    api_url2 = f'https://jsonplaceholder.typicode.com/todos?userId={employee_id}'
-    response = requests.get(api_url2)
-
-    if response.status_code != 200:
-        print("Error fetching tasks data from the API.")
-        sys.exit(1)
-
-    tasks = response.json()
-
-    total_tasks = len(tasks)
-
-    completed_tasks = [task for task in tasks if task["completed"]]
-
-    n_total_tasks = len(completed_tasks)
-
-    print(
-        f"Employee {employee_name} is done with "
-        f"tasks({n_total_tasks}/{total_tasks}):"
-    )
-
-    for task in completed_tasks:
-        print(f"\t {task['title']}")
-
-    export_to_csv(employee_id, employee_name, completed_tasks)
+    information_employee()
