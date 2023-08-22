@@ -3,40 +3,34 @@
 import requests
 from sys import argv
 
-def information_employee():
-    """Returns information about employees"""
-    if len(argv) != 2:
-        print("Usage: python3 script_name.py employee_id")
+def get_employee_todo_progress(employee_id):
+    base_url = "https://jsonplaceholder.typicode.com"
+    user_url = f"{base_url}/users/{employee_id}"
+    todos_url = f"{base_url}/todos?userId={employee_id}"
+
+    user_response = requests.get(user_url)
+    todos_response = requests.get(todos_url)
+
+    if user_response.status_code != 200 or todos_response.status_code != 200:
+        print("Error fetching data from the API.")
         return
 
-    id_employee = int(argv[1])
+    user_data = user_response.json()
+    todos_data = todos_response.json()
 
-    url_users = 'https://jsonplaceholder.typicode.com/users'
-    url_todos = 'https://jsonplaceholder.typicode.com/todos'
+    employee_name = user_data["name"]
+    total_tasks = len(todos_data)
+    done_tasks = sum(1 for task in todos_data if task["completed"])
 
-    try:
-        response_users = requests.get(url_users)
-        response_todos = requests.get(url_todos)
-        response_users.raise_for_status()
-        response_todos.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print("Error fetching data from the API:", e)
-        return
-
-    users = response_users.json()
-    todos = response_todos.json()
-
-    user_info = next((user for user in users if user['id'] == id_employee), None)
-    if not user_info:
-        print("Employee with ID {} not found.".format(id_employee))
-        return
-
-    completed_tasks = [todo['title'] for todo in todos if todo['userId'] == id_employee and todo['completed']]
-    total_tasks = len(completed_tasks) + user_info['id']
-
-    print('Employee {} is done with tasks({}/{}):'.format(user_info['name'], len(completed_tasks), total_tasks))
-    for title in completed_tasks:
-        print('\t{}'.format(title))
+    print(f"Employee {employee_name} is done with tasks({done_tasks}/{total_tasks}):")
+    for task in todos_data:
+        if task["completed"]:
+            print("\t", task["title"])
 
 if __name__ == "__main__":
-    information_employee()
+    if len(sys.argv) != 2:
+        print("Usage: python3 script_name.py employee_id")
+        sys.exit(1)
+
+    employee_id = int(sys.argv[1])
+    get_employee_todo_progress(employee_id)
